@@ -1,0 +1,18 @@
+# Directories
+.DS_Store
+.vscode/
+.venv/
+__pycache__/
+.idea/
+tmp/
+temp/
+venv/
+logs/
+checkpoints/
+test_env/
+cifar-10-batches-py/
+lightning_logs/
+MNIST/
+
+# Files
+**/*.ckpt
