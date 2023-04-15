@@ -1,0 +1,80 @@
+package api
+
+import (
+	"log"
+
+	"chatapp/chat"
+	"chatapp/model"
+	"chatapp/store"
+)
+
+func getRoomUserIds(roomName string) []string {
+	return store.Store.SMembers(store.GetRedisRoomUsersKey(roomName))
+}
+
+func GetRooms(userId string) model.ResponseRooms {
+	r := make([]*model.ResponseRoom, 0)
+
+	// get rooms from redis
+	rooms := chat.GetAllRooms()
+
+	for _, room := range rooms {
+		// check if the user is in the room if a userId is passed in
+		if userId != "" {
+			// check if in set
+			if !store.Store.SIsMember(store.GetRedisRoomUsersKey(room.Name), userId) {
+				continue // skip this room
+			}
+		}
+
+		r = append(r, roomToResponseRoom(room))
+	}
+
+	return r
+}
+
+func roomToResponseRoom(room *model.Room) *model.ResponseRoom {
+	return &model.ResponseRoom{
+		Room:  *room,
+		Users: getRoomUserIds(room.Name),
+	}
+}
+
+func GetRoom(name string) *model.ResponseRoom {
+	if room := chat.GetRoomByName(name); room != nil {
+		return roomToResponseRoom(room)
+	}
+	return nil
+}
+
+func CreateRoom(name string, user *model.User) *model.ResponseRoom {
+	rm := model.NewRoom(name, true, user.ID)
+
+	log.Println("[API] Creating room:", rm.Name, "by", user.ID)
+
+	// create the room
+	room := chat.Manager.CreateRoom(rm, user)
+
+	users := []string{user.ID} // only the creator is in the room
+
+	// return the room
+	return &model.ResponseRoom{
+		Room:  room.Room,
+		Users: users,
+	}
+}
+
+func AddUserToRoom(user *model.User, room *model.Room) bool {
+	chatRoom := chat.Manager.GetActiveRoomByName(room.Name, true)
+
+	log.Println("[API] Adding user to room:", user.ID, room.Name)
+
+	if chatRoom != nil {
+		// add the user to the room
+		chatRoom.AddUser(user)
+	} else {
+		log.Println("[API] Failed to add user to room, client or room is not found")
+		return false
+	}
+	return true
+}
